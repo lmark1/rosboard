@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+from concurrent.futures import thread
 import importlib
 import os
 import threading
@@ -24,6 +25,10 @@ from rosboard.subscribers.processes_subscriber import ProcessesSubscriber
 from rosboard.subscribers.system_stats_subscriber import SystemStatsSubscriber
 from rosboard.subscribers.dummy_subscriber import DummySubscriber
 from rosboard.handlers import ROSBoardSocketHandler, NoCacheStaticFileHandler
+
+# Needed for getting all subscribed topics that we can publish on
+import rosgraph
+import rostopic
 
 class ROSBoardNode(object):
     instance = None
@@ -79,11 +84,15 @@ class ROSBoardNode(object):
         self.tornado_application.listen(self.port)
 
         # allows tornado to log errors to ROS
+        self.loginfo = rospy.loginfo
         self.logwarn = rospy.logwarn
         self.logerr = rospy.logerr
 
         # tornado event loop. all the web server and web socket stuff happens here
         threading.Thread(target = self.event_loop.start, daemon = True).start()
+
+        # loop to sync publishers
+        threading.Thread(target = self.sync_pubs_loop, daemon = True).start()
 
         # loop to sync remote (websocket) subs with local (ROS) subs
         threading.Thread(target = self.sync_subs_loop, daemon = True).start()
@@ -136,6 +145,36 @@ class ROSBoardNode(object):
             except Exception as e:
                 rospy.logwarn(str(e))
                 traceback.print_exc()
+
+    def sync_pubs_loop(self):
+        """
+        Periodically calls self.sync_pubs(). Intended to be run in a thread.
+        """
+        while True:
+            time.sleep(1)
+            self.sync_pubs()
+
+    def sync_pubs(self):
+
+        master = rosgraph.Master('/rostopic')
+        pubs, subs = rostopic.get_topic_list(master=master)
+
+        # Only look for topics that have an active subscriber
+        # Those are the ones we can publish to
+        self.all_pub_topics = {}
+        for topic in subs:
+            topic_name = topic[0]
+            topic_type = topic[1]
+
+            if type(topic_type) is list:
+                topic_type = topic_type[0] # ROS2
+            
+            self.all_pub_topics[topic_name] = topic_type
+
+        self.event_loop.add_callback(
+            ROSBoardSocketHandler.broadcast,
+            [ROSBoardSocketHandler.MSG_PUB_TOPICS, self.all_pub_topics ]
+        )
 
     def sync_subs_loop(self):
         """
@@ -336,6 +375,10 @@ class ROSBoardNode(object):
             ROSBoardSocketHandler.broadcast,
             [ROSBoardSocketHandler.MSG_MSG, ros_msg_dict]
         )
+
+    def on_pub_msg(self, topic_name, topic_type):
+        pub = rospy.Publisher(topic_name, self.get_msg_class(topic_type), queue_size=1)
+        pub.publish(self.get_msg_class(topic_type)())
 
 def main(args=None):
     ROSBoardNode().start()

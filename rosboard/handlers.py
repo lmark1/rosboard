@@ -86,7 +86,8 @@ class ROSBoardSocketHandler(tornado.websocket.WebSocketHandler):
         """
 
         try:
-            if message[0] == ROSBoardSocketHandler.MSG_TOPICS:
+            if message[0] == ROSBoardSocketHandler.MSG_TOPICS or \
+                message[0] == ROSBoardSocketHandler.MSG_PUB_TOPICS:
                 json_msg = json.dumps(message, separators=(',', ':'))
                 for socket in cls.sockets:
                     if socket.ws_connection and not socket.ws_connection.is_closing():
@@ -187,13 +188,27 @@ class ROSBoardSocketHandler(tornado.websocket.WebSocketHandler):
             except KeyError:
                 print("KeyError trying to remove sub")
 
+        # client wants to publish to a topic
+        elif argv[0] == ROSBoardSocketHandler.MSG_PUB:
+            if len(argv) != 2 or type(argv[1]) is not dict:
+                print("error: pub: bad %s", message)
+                return
+
+            topic_name = argv[1].get("topicName")
+            topic_type = argv[1].get("topicType")
+
+            self.node.on_pub_msg(topic_name, topic_type)
+
 ROSBoardSocketHandler.MSG_PING = "p";
 ROSBoardSocketHandler.MSG_PONG = "q";
 ROSBoardSocketHandler.MSG_MSG = "m";
 ROSBoardSocketHandler.MSG_TOPICS = "t";
+ROSBoardSocketHandler.MSG_PUB_TOPICS = "l";
 ROSBoardSocketHandler.MSG_SUB = "s";
 ROSBoardSocketHandler.MSG_SYSTEM = "y";
 ROSBoardSocketHandler.MSG_UNSUB = "u";
+
+ROSBoardSocketHandler.MSG_PUB = "b";
 
 ROSBoardSocketHandler.PING_SEQ = "s";
 ROSBoardSocketHandler.PONG_SEQ = "s";

@@ -1,10 +1,11 @@
 class WebSocketV1Transport {
-    constructor({path, onOpen, onClose, onRosMsg, onTopics, onSystem}) {
+    constructor({path, onOpen, onClose, onMsg, onTopics, onPubTopics, onSystem}) {
       this.path = path;
       this.onOpen = onOpen ? onOpen.bind(this) : null;
       this.onClose = onClose ? onClose.bind(this) : null;
       this.onMsg = onMsg ? onMsg.bind(this) : null;
       this.onTopics = onTopics ? onTopics.bind(this) : null;
+      this.onPubTopics = onPubTopics ? onPubTopics.bind(this) : null;
       this.onSystem = onSystem ? onSystem.bind(this) : null;
       this.ws = null;
     }
@@ -48,6 +49,7 @@ class WebSocketV1Transport {
         }
         else if(wsMsgType === WebSocketV1Transport.MSG_MSG && that.onMsg) that.onMsg(data[1]);
         else if(wsMsgType === WebSocketV1Transport.MSG_TOPICS && that.onTopics) that.onTopics(data[1]);
+        else if(wsMsgType === WebSocketV1Transport.MSG_PUB_TOPICS && that.onPubTopics) that.onPubTopics(data[1])
         else if(wsMsgType === WebSocketV1Transport.MSG_SYSTEM && that.onSystem) that.onSystem(data[1]);
         else console.log("received unknown message: " + wsmsg.data);
       }
@@ -64,15 +66,26 @@ class WebSocketV1Transport {
     unsubscribe({topicName}) {
       this.ws.send(JSON.stringify([WebSocketV1Transport.MSG_UNSUB, {topicName: topicName}]));
     }
+
+    publish({topicName, publishOnce = true, publishFrequency = 10.0}) {
+      this.ws.send(JSON.stringify([WebSocketV1Transport.MSG_PUB, 
+        {
+          topicName: topicName,
+          topicType: "std_msgs/String"
+        }]));
+    }
   }
   
   WebSocketV1Transport.MSG_PING = "p";
   WebSocketV1Transport.MSG_PONG = "q";
   WebSocketV1Transport.MSG_MSG = "m";
   WebSocketV1Transport.MSG_TOPICS = "t";
+  WebSocketV1Transport.MSG_PUB_TOPICS = "l";
   WebSocketV1Transport.MSG_SUB = "s";
   WebSocketV1Transport.MSG_SYSTEM = "y";
   WebSocketV1Transport.MSG_UNSUB = "u";
+
+  WebSocketV1Transport.MSG_PUB = "b";
 
   WebSocketV1Transport.PING_SEQ= "s";
   WebSocketV1Transport.PONG_SEQ = "s";

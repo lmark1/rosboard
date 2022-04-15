@@ -111,6 +111,11 @@ let onMsg = function(msg) {
 let currentTopics = {};
 let currentTopicsStr = "";
 
+let onPubTopics = function(topics) {
+  // TODO(lmark): Hook up publishers here
+  console.log(JSON.stringify(topics))
+}
+
 let onTopics = function(topics) {
   
   // check if topics has actually changed, if not, don't do anything
@@ -145,6 +150,12 @@ let onTopics = function(topics) {
   .addClass("mdl-navigation__link")
   .click(() => { initSubscribe({topicName: "_system_stats", topicType: "rosboard_msgs/msg/SystemStats"}); })
   .text("System stats")
+  .appendTo($("#topics-nav-system"));
+
+  $('<a></a>')
+  .addClass("mdl-navigation__link")
+  .click(() => { currentTransport.publish({topicName: "pub_test", publishOnce: true, publishFrequency: 1}); })
+  .text("publish")
   .appendTo($("#topics-nav-system"));
 }
 
@@ -223,6 +234,7 @@ function initDefaultTransport() {
     onOpen: onOpen,
     onMsg: onMsg,
     onTopics: onTopics,
+    onPubTopics: onPubTopics,
     onSystem: onSystem,
   });
   currentTransport.connect();
