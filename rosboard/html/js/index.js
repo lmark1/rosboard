@@ -23,6 +23,7 @@ importJsOnce("js/transports/WebSocketV1Transport.js");
 var snackbarContainer = document.querySelector('#demo-toast-example');
 
 let subscriptions = {};
+let publications = {};
 
 if(window.localStorage && window.localStorage.subscriptions) {
   if(window.location.search && window.location.search.indexOf("reset") !== -1) {
@@ -110,10 +111,35 @@ let onMsg = function(msg) {
 
 let currentTopics = {};
 let currentTopicsStr = "";
+let currentPubTopicsStr = "";
 
 let onPubTopics = function(topics) {
-  // TODO(lmark): Hook up publishers here
-  console.log(JSON.stringify(topics))
+
+  // check if publishers has actually changed, if not, don't do anything
+  // lazy shortcut to deep compares, might possibly even be faster than
+  // implementing a deep compare due to
+  // native optimization of JSON.stringify
+  let newTopicsStr = JSON.stringify(topics);
+  if(newTopicsStr === currentPubTopicsStr) return;
+  currentPubTopicsStr = newTopicsStr;
+
+  $("#topics-nav-rospub").empty();
+
+  for (const [key, value] of Object.entries(topics)) {
+    console.log(key, value);
+    let subEl = $('<div></div>')
+      .css({})
+      .appendTo($("#topics-nav-rospub"));
+    $('<a></a>')
+      .addClass("mdl-navigation__link")
+      .css({
+        "padding-left": "12pt",
+        "margin-left": 0,
+      })
+      .click(() => { initPublisher({topicName: key, topicType: value}); })
+      .text(key)
+      .appendTo(subEl);
+  }
 }
 
 let onTopics = function(topics) {
@@ -126,7 +152,7 @@ let onTopics = function(topics) {
   if(newTopicsStr === currentTopicsStr) return;
   currentTopics = topics;
   currentTopicsStr = newTopicsStr;
-  
+
   let topicTree = treeifyPaths(Object.keys(topics));
   
   $("#topics-nav-ros").empty();
@@ -152,11 +178,11 @@ let onTopics = function(topics) {
   .text("System stats")
   .appendTo($("#topics-nav-system"));
 
-  $('<a></a>')
-  .addClass("mdl-navigation__link")
-  .click(() => { currentTransport.publish({topicName: "pub_test", publishOnce: true, publishFrequency: 1}); })
-  .text("publish")
-  .appendTo($("#topics-nav-system"));
+  //$('<a></a>')
+  //.addClass("mdl-navigation__link")
+  //.click(() => { currentTransport.publish({topicName: "pub_test", publishOnce: true, publishFrequency: 1}); })
+  //.text("publish")
+  //.appendTo($("#topics-nav-system"));
 }
 
 function addTopicTreeToNav(topicTree, el, level = 0, path = "") {
@@ -226,6 +252,29 @@ function initSubscribe({topicName, topicType}) {
   updateStoredSubscriptions();
 }
 
+function initPublisher({topicName, topicType})
+{
+  // creates a publisher for topicName
+  console.log("Making publisher: " + topicName + " type " + topicType)
+
+  if (publications[topicName] == null)
+  {
+    publications[topicName] = { 
+      topicType: topicType,
+    }
+  }
+
+  if (publications[topicName].viewer == null)
+  {
+    console.log("asd");
+    let card = newCard();
+    let viewer = Viewer.getDefaultViewerForType(topicType);
+    publications[topicName].viewer = new viewer(card, topicName, topicType, true);
+    publications[topicName].viewer.setupPublisherMode();
+    $grid.masonry("appended", card);
+  }
+}
+
 let currentTransport = null;
 
 function initDefaultTransport() {
@@ -289,8 +338,18 @@ Viewer.onClose = function(viewerInstance) {
   let topicType = viewerInstance.topicType;
   currentTransport.unsubscribe({topicName:topicName});
   $grid.masonry("remove", viewerInstance.card);
-  delete(subscriptions[topicName].viewer);
-  delete(subscriptions[topicName]);
+
+  if (viewerInstance.isPublisher)
+  {
+    delete(publications[topicName].viewer);
+    delete(publications[topicName]);  
+  }
+  else
+  {
+    delete(subscriptions[topicName].viewer);
+    delete(subscriptions[topicName]);
+  }
+
   updateStoredSubscriptions();
 }
 

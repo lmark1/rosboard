@@ -67,11 +67,11 @@ class WebSocketV1Transport {
       this.ws.send(JSON.stringify([WebSocketV1Transport.MSG_UNSUB, {topicName: topicName}]));
     }
 
-    publish({topicName, publishOnce = true, publishFrequency = 10.0}) {
+    publish({topicName, topicType, publishOnce = true, publishFrequency = 10.0}) {
       this.ws.send(JSON.stringify([WebSocketV1Transport.MSG_PUB, 
         {
           topicName: topicName,
-          topicType: "std_msgs/String"
+          topicType: topicType
         }]));
     }
   }

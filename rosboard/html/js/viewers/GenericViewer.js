@@ -25,6 +25,20 @@ class GenericViewer extends Viewer {
 
     super.onCreate();
   }
+  
+  setupPublisherMode() { 
+    this.card.title.text("Publisher: " + this.topicType);
+
+    // get rid of the spinner
+    if(this.loaderContainer) {
+      this.loaderContainer.remove();
+      this.loaderContainer = null;
+    }
+
+    $('<button type="submit" name="formBtn">Submit</button>')
+      .css({'align-items': 'center', 'display': 'flex', 'justify-content':'center'})
+      .appendTo(this.viewerNode);
+  }
 
   onData(data) {
       this.card.title.text(data._topic_name);

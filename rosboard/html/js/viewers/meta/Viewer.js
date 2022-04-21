@@ -11,10 +11,15 @@ class Viewer {
     * Class constructor.
     * @constructor
   **/
-  constructor(card, topicName, topicType) {
+  constructor(card, topicName, topicType, isPublisher = false) {
+    if (isPublisher) {
+      console.log("This Viewer is a publisher");
+    }
+    
     this.card = card;
     this.isPaused = false;
-
+    
+    this.isPublisher = isPublisher;
     this.topicName = topicName;
     this.topicType = topicType;
 
@@ -114,6 +119,8 @@ class Viewer {
   onDataPaused(data) { }
 
   onData(data) { }
+
+  setupPublisherMode() { }
 
   update(data) {
     let time = Date.now();
